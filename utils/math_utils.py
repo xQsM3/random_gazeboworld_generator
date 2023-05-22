@@ -36,7 +36,8 @@ class ObjectTypes(Enum):
 class World():
     def __init__(self,max_volume_density,scale):
         self.r = CustomRenderer()
-        self.skybox = Skybox(shape=[600,600,200], midpoint=[200, 0, 100],r=self.r)
+        self.midpoint = [200, 0, 100]
+        self.skybox = Skybox(shape=[600,600,200], midpoint=self.midpoint,r=self.r)
         self.drone_spawn_airspace = Cylinder(Point(0,0,0),5,200 * z_unit_vector(),n=15)
         self.goal_airspace = Cylinder(Point(400,0,0),5,200 * z_unit_vector(),n=15)
         self.objects = []
@@ -45,12 +46,21 @@ class World():
         self.full = False
         self.fillup_tries = 0
         self.scale=scale
-        self.skybox_histogramm = np.zeros(shape=(self.skybox.high_z+1,self.skybox.high_y+1,self.skybox.high_x+1)) # to block already tried points in space, for acceleration
+        self.spawn_phase = 1 # spawn phases for different object sizes. spawn big once first to boost performance
+        self.skybox_histogramm = np.zeros(shape=(self.skybox.high_z-self.skybox.low_z+1,
+                                                 self.skybox.high_y-self.skybox.low_y+1,
+                                                 self.skybox.high_x-self.skybox.low_x+1)) # to block already tried points in space, for acceleration
+
     def generate_random_obstacle(self,blocks_only=True):
         obst_type = ObjectTypes.BOX if blocks_only else random.choice(list(ObjectTypes))
         if obst_type == ObjectTypes.BOX:
             pos = self.random_pos()
-            dim = np.clip(a=np.random.exponential(scale=50,size=(1,3)),a_min=2,a_max=80).astype(int).squeeze()
+            if self.spawn_phase == 1:
+                dim = np.clip(a=np.random.exponential(scale=100,size=(1,3)),a_min=4,a_max=150).astype(int).squeeze()
+            elif self.spawn_phase == 2:
+                dim = np.clip(a=np.random.exponential(scale=50,size=(1,3)),a_min=2,a_max=80).astype(int).squeeze()
+            elif self.spawn_phase > 2:
+                dim = np.clip(a=np.random.exponential(scale=3,size=(1,3)),a_min=1,a_max=10).astype(int).squeeze()
             random_orientation = pyquaternion.Quaternion.random()
 
             obst = Obstacle(pos, Vector(random_orientation.rotate((dim[0], 0, 0))),
@@ -61,19 +71,35 @@ class World():
         return obst
 
     def update_histogramm(self,pos):
-        self.skybox_histogramm[round(pos.z), round(pos.y), round(pos.x)] = 1
+        self.skybox_histogramm[self.world_2_histogramm_cos(round(pos.z),axis="z"),
+        self.world_2_histogramm_cos(round(pos.y),axis="y"),
+        self.world_2_histogramm_cos(round(pos.x),axis="x")] = 1
+    def world_2_histogramm_cos(self,element,axis):
+        if axis == "x":
+            return element - self.skybox.low_x
+        if axis == "y":
+            return element - self.skybox.low_y
+        if axis == "z":
+            return element - self.skybox.low_z
+    def histogramm_2_world_cos(self,element,axis):
+        if axis == "x":
+            return element + self.skybox.low_x
+        if axis == "y":
+            return element + self.skybox.low_y
+        if axis == "z":
+            return element + self.skybox.low_z
+
     def random_pos(self):
         distributed_z = int(np.clip(np.random.exponential(scale=self.skybox.high_z // self.scale, size=(1,)),
                                     a_min=self.skybox.low_z, a_max=self.skybox.high_z))
 
-        height_extracted = self.skybox_histogramm[distributed_z]  # get slots from histrogram on z height
+        height_extracted = self.skybox_histogramm[self.world_2_histogramm_cos(distributed_z,axis="z")]  # get slots from histrogram on z height
         open_slots = np.argwhere(height_extracted == 0) # get open slots
         # shuffle slots and choose x,y randomly from open slots
         np.random.shuffle(open_slots)
-        random_x = open_slots[0,0]
-        random_y = open_slots[0,1]
+        random_x = self.histogramm_2_world_cos(open_slots[0,0],axis="x")
+        random_y = self.histogramm_2_world_cos(open_slots[0,1],axis="y")
         pos = Point(random_x, random_y, distributed_z)
-
         return pos
     def volume_density(self):
         return self.total_volume_obstacles / self.skybox.volume
@@ -92,7 +118,10 @@ class World():
             if intersection(candidate.geom,sky_bound): return False
         sorted_objects = self.sort_objects_by_candidate_distance(candidate)
         for obs in sorted_objects:
-            if intersection(candidate.geom,obs.geom): return False
+            if intersection(candidate.geom,obs.geom):
+                if intersection(candidate.geom.center_point,obs.geom): #block center point for further random spawns if intersects
+                    self.update_histogramm(candidate.geom.center_point)
+                return False #dont spawn candidate if intersects
         return True
 
     def sort_objects_by_candidate_distance(self,candidate):
@@ -112,6 +141,10 @@ class World():
             if self.fillup_tries>5:
                 self.full = True
             return
+        if len(self.objects) >= 5:
+            self.spawn_phase = 2
+        if len(self.objects) >= 40:
+            self.spawn_phase = 3
         self.update_histogramm(obstacle.center_point)
     def add_render(self):
         self.r.add((self.drone_spawn_airspace,'g',2))

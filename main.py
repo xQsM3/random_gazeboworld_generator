@@ -5,10 +5,10 @@ import os
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 import traceback
+import time
 
 def main (max_volume_density,scale,num):
     world = World(max_volume_density,scale=scale)
-
     while not world.full:
         try:
                 obstacle = world.generate_random_obstacle()
@@ -25,9 +25,9 @@ def main (max_volume_density,scale,num):
     write_txt(name,"output/worldlist.txt")
 
 if __name__ == "__main__":
-    max_volume_density = 0.05
+    max_volume_density = 0.005
     for i in range(1,101):
-        i+=80
+        #i+=80
         if (i-1) % 10 == 0 and i > 1:
             max_volume_density += 0.05
 
