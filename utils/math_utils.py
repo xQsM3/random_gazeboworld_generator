@@ -38,13 +38,14 @@ class ObjectTypes(Enum):
 class World():
     def __init__(self,max_volume_density,scale):
         self.r = CustomRenderer()
-        self.skybox = Skybox(shape=[600,600,200], midpoint=[0, 0, 100],r=self.r)
-        self.drone_spawn_airspace = Cylinder(Point(-200,0,0),5,200 * z_unit_vector(),n=15)
-        self.goal_airspace = Cylinder(Point(200,0,0),5,200 * z_unit_vector(),n=15)
+        self.skybox = Skybox(shape=[600,600,200], midpoint=[200, 0, 100],r=self.r)
+        self.drone_spawn_airspace = Cylinder(Point(0,0,0),5,200 * z_unit_vector(),n=15)
+        self.goal_airspace = Cylinder(Point(400,0,0),5,200 * z_unit_vector(),n=15)
         self.objects = []
         self.max_volume_density = max_volume_density
         self.total_volume_obstacles = 0
         self.full = False
+        self.fillup_tries = 0
         self.scale=scale
         self.skybox_histogramm = np.zeros(shape=(self.skybox.high_x+1,self.skybox.high_y+1,self.skybox.high_z+1)) # to block already tried points in space, for acceleration
     def generate_random_obstacle(self,blocks_only=True):
@@ -104,7 +105,9 @@ class World():
         if self.volume_density() > self.max_volume_density:
             self.objects.pop(len(self.objects)-1)
             self.total_volume_obstacles -= obstacle.geom.volume()
-            self.full = True
+            self.fillup_tries+=1
+            if self.fillup_tries>5:
+                self.full = True
     def add_render(self):
         self.r.add((self.drone_spawn_airspace,'g',2))
         self.r.add((self.goal_airspace,'g',2))

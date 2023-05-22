@@ -10,7 +10,7 @@ def save_worldfile(world,name,savepath):
         os.makedirs(savepath)
     worldpath = os.path.join(savepath,name)
 
-    shutil.copyfile("beginningtemplate.world",worldpath)
+    shutil.copyfile("templates/beginningtemplate.world",worldpath)
     write_models(world,worldpath)
     write_closing(worldpath)
 
@@ -34,7 +34,7 @@ def write_model_sdf(object,worldpath,num):
     halfheight = get_gazebomodel_halfheight(object)
     boxsize = get_gazebomodel_boxsize(object)
 
-    with open("modeltemplate.world","r") as src:
+    with open("templates/modeltemplate.world","r") as src:
         src_lines = src.readlines()
 
     with open (worldpath,"a") as dest:
