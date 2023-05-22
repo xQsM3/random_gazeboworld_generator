@@ -4,6 +4,7 @@ from time import sleep
 import os
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
+import traceback
 
 def main (max_volume_density,scale,num):
     world = World(max_volume_density,scale=scale)
@@ -11,10 +12,10 @@ def main (max_volume_density,scale,num):
     while not world.full:
         try:
                 obstacle = world.generate_random_obstacle()
-                if world.valid_obstacle(obstacle.geom): world.add_obstacle(obstacle)
-        except:
+                if world.valid_obstacle(obstacle): world.add_obstacle(obstacle)
+        except Exception as e:
                 sleep(1)
-                pass
+                print(traceback.format_exc())
         
 
     name = f"HANNASSCAPES_random_obst_worldnum_{num}_scale_5_maxdens_" \

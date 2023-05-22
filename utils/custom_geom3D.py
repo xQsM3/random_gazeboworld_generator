@@ -1,6 +1,7 @@
 from Geometry3D import *
 from Geometry3D.render.renderer_matplotlib import MatplotlibRenderer
 import os
+import numpy as np
 
 def CustomRenderer(backend='matplotlib'):
     """
@@ -15,7 +16,11 @@ def CustomRenderer(backend='matplotlib'):
     else:
         raise ValueError('Unknown backend %s' % (backend,))
 
-
+class CustomPoint(Point):
+    def __init__(self,*args):
+        super(CustomPoint,self).__init__(*args)
+    def asarray(self):
+        return np.array([self.x,self.y,self.z])
 class Obstacle():
     def __init__(self, basepoint, v1, v2, v3,obst_type,orientation,dimension):
         self.geom = Parallelepiped(basepoint,v1,v2,v3)
@@ -25,7 +30,8 @@ class Obstacle():
 
     @property
     def center_point(self):
-        return self.geom.center_point
+        p = self.geom.center_point
+        return CustomPoint(p.x,p.y,p.z)
     @property
     def orientation(self):
         return self._orientation

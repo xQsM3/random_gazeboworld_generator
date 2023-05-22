@@ -8,8 +8,6 @@ import math
 from utils.custom_geom3D import CustomRenderer,Obstacle
 
 
-
-
 def euler_from_quaternion(q):
     """
     Convert a quaternion into euler angles (roll, pitch, yaw)
@@ -47,7 +45,7 @@ class World():
         self.full = False
         self.fillup_tries = 0
         self.scale=scale
-        self.skybox_histogramm = np.zeros(shape=(self.skybox.high_x+1,self.skybox.high_y+1,self.skybox.high_z+1)) # to block already tried points in space, for acceleration
+        self.skybox_histogramm = np.zeros(shape=(self.skybox.high_z+1,self.skybox.high_y+1,self.skybox.high_x+1)) # to block already tried points in space, for acceleration
     def generate_random_obstacle(self,blocks_only=True):
         obst_type = ObjectTypes.BOX if blocks_only else random.choice(list(ObjectTypes))
         if obst_type == ObjectTypes.BOX:
@@ -63,21 +61,19 @@ class World():
         return obst
 
     def update_histogramm(self,pos):
-        if self.skybox_histogramm[pos.x, pos.y, pos.z] == 0:
-            self.skybox_histogramm[pos.x, pos.y, pos.z] = 1
-            try:
-                self.skybox_histogramm[pos.x - 1:pos.x + 1, pos.y - 1:pos.y + 1, pos.z - 1:pos.z + 1] = 1
-            except:
-                pass
+        self.skybox_histogramm[round(pos.z), round(pos.y), round(pos.x)] = 1
     def random_pos(self):
-        while True:
-            distributed_z = int(np.clip(np.random.exponential(scale=self.skybox.high_z // self.scale, size=(1,)),
-                                        a_min=self.skybox.low_z, a_max=self.skybox.high_z))
-            random_x = random.randint(self.skybox.low_x, self.skybox.high_x)
-            random_y = random.randint(self.skybox.low_y, self.skybox.high_y)
-            pos = Point(random_x, random_y, distributed_z)
-            self.update_histogramm(pos)
-            break
+        distributed_z = int(np.clip(np.random.exponential(scale=self.skybox.high_z // self.scale, size=(1,)),
+                                    a_min=self.skybox.low_z, a_max=self.skybox.high_z))
+
+        height_extracted = self.skybox_histogramm[distributed_z]  # get slots from histrogram on z height
+        open_slots = np.argwhere(height_extracted == 0) # get open slots
+        # shuffle slots and choose x,y randomly from open slots
+        np.random.shuffle(open_slots)
+        random_x = open_slots[0,0]
+        random_y = open_slots[0,1]
+        pos = Point(random_x, random_y, distributed_z)
+
         return pos
     def volume_density(self):
         return self.total_volume_obstacles / self.skybox.volume
@@ -90,13 +86,20 @@ class World():
 
 
     def valid_obstacle(self,candidate):
-        if intersection(candidate,self.drone_spawn_airspace): return False
-        if intersection(candidate,self.goal_airspace): return False
+        if intersection(candidate.geom,self.drone_spawn_airspace): return False
+        if intersection(candidate.geom,self.goal_airspace): return False
         for sky_bound in self.skybox.boundary_planes:
-            if intersection(candidate,sky_bound): return False
-        for obs in self.objects:
-            if intersection(candidate,obs.geom): return False
+            if intersection(candidate.geom,sky_bound): return False
+        sorted_objects = self.sort_objects_by_candidate_distance(candidate)
+        for obs in sorted_objects:
+            if intersection(candidate.geom,obs.geom): return False
         return True
+
+    def sort_objects_by_candidate_distance(self,candidate):
+        dis = [abs(np.linalg.norm(obj.center_point.asarray()-candidate.center_point.asarray())) for obj in self.objects]
+        sorted_objects = np.stack((self.objects.copy(),dis),axis=1)
+        sorted_objects = sorted_objects[sorted_objects[:,1].argsort()] # sort by distance, to boost intersection computation performance
+        return list(sorted_objects[:,0])
     def add_obstacle(self,obstacle):
         self.objects.append(obstacle)
         self.total_volume_obstacles += obstacle.geom.volume()
@@ -108,6 +111,8 @@ class World():
             self.fillup_tries+=1
             if self.fillup_tries>5:
                 self.full = True
+            return
+        self.update_histogramm(obstacle.center_point)
     def add_render(self):
         self.r.add((self.drone_spawn_airspace,'g',2))
         self.r.add((self.goal_airspace,'g',2))
