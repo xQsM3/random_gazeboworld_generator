@@ -18,19 +18,20 @@ def main (max_volume_density,scale,num):
                 print(traceback.format_exc())
         
 
-    name = f"HANNASSCAPES_random_obst_worldnum_{num}_scale_5_maxdens_" \
+    name = f"HANNASSCAPES_random_obst_worldnum_{num}_scale_{scale}_maxdens_" \
            f"{max_volume_density}_realdens_{world.volume_density()}".replace(".","dot")
     world.render(show=False,name=f"{name}.png",savepath="output/figures")
     save_worldfile(world,name=f"{name}.world",savepath="output/worlds")
     write_txt(name,"output/worldlist.txt")
 
 if __name__ == "__main__":
-    max_volume_density = 0.005
-    for i in range(1,101):
+    max_volume_density = 0.066
+    for i in range(101,108):
         #i+=80
-        if (i-1) % 10 == 0 and i > 1:
-            max_volume_density += 0.05
+        #if (i-1) %  == 0 and i > 1:
 
-        main(max_volume_density=max_volume_density, scale=5, num=i)
+
+        main(max_volume_density=max_volume_density, scale=15, num=i)
+        max_volume_density += 0.002
 
 

@@ -141,9 +141,9 @@ class World():
             if self.fillup_tries>5:
                 self.full = True
             return
-        if len(self.objects) >= 5:
+        if len(self.objects) >= 100:
             self.spawn_phase = 2
-        if len(self.objects) >= 40:
+        if len(self.objects) >= 300:
             self.spawn_phase = 3
         self.update_histogramm(obstacle.center_point)
     def add_render(self):

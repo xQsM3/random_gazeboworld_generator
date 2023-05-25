@@ -1,0 +1,25 @@
+<launch>
+   <arg name="verbose" value="true" />
+   <arg default="test" name="world_file_name" />
+   <arg default="$(find avoidance)/sim/worlds/HANNASSCAPES_random/$(arg world_file_name).world" name="world_path" />
+   <arg default="[/camera_front/depth/points,/camera_left/depth/points,/camera_right/depth/points]" name="pointcloud_topics" />
+   <node args="0 0 0 -1.57 0 -1.57 fcu front_camera_link 10" name="tf_front_camera" pkg="tf" type="static_transform_publisher" />
+   <node args="0 0 0 -2.6172 0 -1.57 fcu right_camera_link 10" name="tf_right_camera" pkg="tf" type="static_transform_publisher" />
+   <node args="0 0 0 -0.5228 0 -1.57 fcu left_camera_link 10" name="tf_left_camera" pkg="tf" type="static_transform_publisher" />
+   <include file="$(find avoidance)/launch/avoidance_sitl_mavros.launch">
+      <arg name="model" value="HANNAS_iris_triple_depth_camera" />
+      <arg name="world_path" value="$(arg world_path)" />
+      <arg name="gui" value="false" />
+   </include>
+   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find local_planner)/resource/custom_rosconsole.conf" />
+   <arg default="local_planner_manager" name="manager" />
+   <node args="manager" name="$(arg manager)" output="screen" pkg="nodelet" type="nodelet" />
+   <node args="load LocalPlannerNodelet $(arg manager)" name="local_planner_nodelet" output="screen" pkg="nodelet" type="nodelet">
+      <param name="goal_x_param" value="400" />
+      <param name="goal_y_param" value="0" />
+      <param name="goal_z_param" value="5" />
+      <param name="world_name" value="$(find avoidance)/sim/worlds/HANNASSCAPES/$(arg world_file_name).yaml" />
+      <rosparam param="pointcloud_topics" subst_value="True">$(arg pointcloud_topics)</rosparam>
+   </node>
+   <node args="-d $(find local_planner)/resource/local_planner.rviz" name="rviz" output="screen" pkg="rviz" type="rviz" />
+</launch>
